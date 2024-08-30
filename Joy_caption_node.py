@@ -1,6 +1,7 @@
 
 from huggingface_hub import InferenceClient
 from torch import nn
+import bitsandbytes as bnb
 from transformers import AutoModel, AutoProcessor, AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast, AutoModelForCausalLM
 from pathlib import Path
 import torch
@@ -92,6 +93,39 @@ class Joy_caption_load:
         text_model = AutoModelForCausalLM.from_pretrained(MODEL_PATH, device_map="auto",trust_remote_code=True)
         text_model.eval()
 
+	# LLM
+	MODEL_PATH = download_hg_model(self.model, "LLM")
+	tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, use_fast=False)
+	assert isinstance(tokenizer, PreTrainedTokenizer) or isinstance(tokenizer, PreTrainedTokenizerFast), f"Tokenizer is of type {type(tokenizer)}"
+	# Determine which quantization to use
+	if self.quantization_type == 'bnb-4bit':
+		print("Loading model with 4-bit quantization using bitsandbytes...")
+		text_model = AutoModelForCausalLM.from_pretrained(
+            		MODEL_PATH,
+            		device_map="auto",
+            		torch_dtype=torch.float16,
+            		trust_remote_code=True,
+            		quantization_config=bnb.BitsAndBytesConfig(load_in_4bit=True)
+		)
+	elif self.quantization_type == 'gguf':
+		print("Loading model with GGUF quantization...")
+		text_model = AutoModelForCausalLM.from_pretrained(
+			MODEL_PATH,
+			device_map="auto",
+			torch_dtype=torch.float16,
+			trust_remote_code=True,
+		)
+	else:
+		print("Loading model without quantization...")
+		text_model = AutoModelForCausalLM.from_pretrained(
+			MODEL_PATH,
+			device_map="auto",
+			torch_dtype=torch.float16,
+			trust_remote_code=True,
+		)
+
+	text_model.eval()
+	    
         # Image Adapter
         adapter_path =  os.path.join(folder_paths.models_dir,"Joy_caption","image_adapter.pt")
 
